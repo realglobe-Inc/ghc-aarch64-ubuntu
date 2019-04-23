@@ -1,6 +1,6 @@
-FROM balenalib/aarch64-ubuntu:bionic
+FROM balenalib/aarch64-ubuntu:bionic as builder
 
-RUN apt update && apt install -y autoconf automake libtool build-essential libgmp-dev ncurses-dev libtinfo-dev python3 xz-utils llvm-3.9 clang-3.9 llvm-6.0 clang-6.0
+RUN apt update && apt install -y autoconf automake libtool build-essential libgmp-dev ncurses-dev libtinfo-dev python3 xz-utils llvm-3.9 llvm-6.0
 
 RUN curl -L -O https://downloads.haskell.org/~ghc/8.2.2/ghc-8.2.2-aarch64-deb8-linux.tar.xz \
     && tar Jxfv ghc-8.2.2-aarch64-deb8-linux.tar.xz \
@@ -15,16 +15,19 @@ RUN cd / \
     && tar Jxfv ghc-8.6.4-src.tar.xz \
     && rm ghc-8.6.4-src.tar.xz
 
-# ENV PATH "/usr/lib/llvm-6.0/bin/:${PATH}"
-
 RUN cd /ghc-8.6.4 \
     && ./boot \
-    && ./configure \
+    && ./configure --prefix /opt/ghc/ \
     && sed -E "s/^#(BuildFlavour[ ]+= quick)$/\1/" mk/build.mk.sample > mk/build.mk \
-    && make -j 4 \
+    && make -j \
     && make install
 
-RUN curl -sSL https://get.haskellstack.org/ | sh
+FROM balenalib/aarch64-ubuntu:bionic
 
-ENV PATH "/root/.local/bin:${PATH}"
+COPY --from=builder /opt/ghc /opt/ghc
+
+ENV PATH "/opt/ghc/bin:/root/.local/bin:${PATH}"
+
+RUN apt update && apt install -y llvm-6.0 && curl -sSL https://get.haskellstack.org/ | sh
+
 
